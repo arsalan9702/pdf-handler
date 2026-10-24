@@ -6,6 +6,8 @@
 #include "services/ThumbnailProvider.hpp"
 
 #include <QElapsedTimer>
+#include <QFont>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlExtensionPlugin>
@@ -244,9 +246,16 @@ TEST_CASE("Every page loads and runs without QML warnings") {
 int main(int argc, char* argv[]) {
     qputenv("QT_QPA_PLATFORM", "offscreen");
     // Surface QML warnings (binding/JS errors) in the test log.
-    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext&, const QString& msg) {
-        if (type != QtDebugMsg) {
-            std::cerr << "[qt] " << msg.toStdString() << "\n";
+    // Surface Qt warnings in the log; collect the ones raised by our QML (binding loops, JS
+    // errors), not platform noise such as the offscreen plugin's font setup.
+    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext& ctx, const QString& msg) {
+        if (type == QtDebugMsg) {
+            return;
+        }
+        std::cerr << "[qt] " << msg.toStdString() << "\n";
+        const bool fromQml = (ctx.file != nullptr && QByteArray(ctx.file).startsWith("qrc:")) ||
+                             msg.contains(QLatin1String("qrc:/qt/qml/PdfHandler"));
+        if (fromQml) {
             g_warnings << msg;
         }
     });
@@ -254,5 +263,10 @@ int main(int argc, char* argv[]) {
     QGuiApplication::setOrganizationName(QStringLiteral("PdfHandlerTests"));
     QGuiApplication::setApplicationName(QStringLiteral("ui_tests"));
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+    // Same font setup as the app.
+    if (QFontDatabase::addApplicationFont(
+            QStringLiteral(":/qt/qml/PdfHandler/qml/fonts/InterVariable.ttf")) >= 0) {
+        QGuiApplication::setFont(QFont(QStringLiteral("Inter")));
+    }
     return Catch::Session().run(argc, argv);
 }

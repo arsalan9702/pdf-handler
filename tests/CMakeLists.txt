@@ -27,6 +27,7 @@ add_executable(pdfcore_tests
     test_document.cpp
     test_page_copy.cpp
     test_ops.cpp
+    test_robustness.cpp
 )
 add_dependencies(pdfcore_tests pdfh_fixtures)
 target_link_libraries(pdfcore_tests PRIVATE pdfh::core Catch2::Catch2WithMain)

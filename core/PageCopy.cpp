@@ -153,32 +153,47 @@ struct OpenSource {
     std::unique_ptr<QPDFAcroFormDocumentHelper> forms;
 };
 
-OpResult copyMultiSource(const Project& project, const std::filesystem::path& output,
-                         const WriteOptions& requested, const JobContext& ctx) {
+} // namespace
+
+struct SourceCache::Impl {
+    std::map<DocId, OpenSource> sources;
+};
+
+SourceCache::SourceCache() : impl(std::make_unique<Impl>()) {}
+SourceCache::~SourceCache() = default;
+
+OpResult copyPages(SourceCache& cache, const Project& project, const std::filesystem::path& output,
+                   const WriteOptions& requested, const JobContext& ctx) {
+    if (project.pages.empty()) {
+        throw PdfError(ErrorKind::InvalidArgument, "No pages selected");
+    }
     const int n = static_cast<int>(project.pages.size());
     OpResult result;
-
-    // A fresh document has no encryption to preserve.
-    WriteOptions options = requested;
-    if (options.encryptionMode == EncryptionMode::Preserve) {
-        options.encryptionMode = EncryptionMode::Remove;
+    std::set<DocId> used;
+    for (const auto& ref : project.pages) {
+        used.insert(ref.sourceDocId);
+        (void)normalizedRotation(ref.rotation);
     }
+
+    WriteOptions options = requested;
+    QPDF* encryptionSource = nullptr;
+    std::string reopenPassword;
 
     AtomicOutput out(output);
     {
         // Every source stays open until write() returns (QPDF copies lazily).
-        std::map<DocId, OpenSource> sources;
-        for (const auto& ref : project.pages) {
-            if (sources.contains(ref.sourceDocId)) {
+        auto& sources = cache.impl->sources;
+        for (DocId id : used) {
+            if (sources.contains(id)) {
                 continue;
             }
-            const auto& src = findSource(project, ref.sourceDocId);
+            const auto& src = findSource(project, id);
             OpenSource os;
             os.doc = openDocument(src.path, src.password);
             appendWarnings(result.warnings, os.doc.warnings);
             os.pages = QPDFPageDocumentHelper(*os.doc.pdf).getAllPages();
             os.forms = std::make_unique<QPDFAcroFormDocumentHelper>(*os.doc.pdf);
-            sources.emplace(ref.sourceDocId, std::move(os));
+            sources.emplace(id, std::move(os));
         }
 
         auto pdf = QPDF::create();
@@ -212,22 +227,58 @@ OpResult copyMultiSource(const Project& project, const std::filesystem::path& ou
                 }
                 ctx.report(i + 1, 2 * n);
             }
+
+            if (used.size() == 1) {
+                // One source: keep its title/author and (if asked) its protection.
+                auto& src = sources.at(*used.begin());
+                auto info = src.doc.pdf->getTrailer().getKey("/Info");
+                if (info.isDictionary() && info.isIndirect()) {
+                    pdf->getTrailer().replaceKey("/Info", pdf->copyForeignObject(info));
+                }
+                if (options.encryptionMode == EncryptionMode::Preserve && src.doc.encrypted) {
+                    encryptionSource = src.doc.pdf.get();
+                    reopenPassword = findSource(project, *used.begin()).password;
+                }
+            }
         } catch (...) {
             rethrowAsPdfError("Copying pages", false);
         }
         applyBookmarks(*pdf, project.bookmarks);
 
-        auto validation = writeAndValidate(*pdf, out, options, n, reopenPasswordFor(options, {}),
-                                           ctx.slice(n, n, 2 * n));
+        if (options.encryptionMode == EncryptionMode::Preserve && encryptionSource == nullptr) {
+            options.encryptionMode = EncryptionMode::Remove; // a fresh document has none
+        }
+        if (encryptionSource == nullptr) {
+            reopenPassword = reopenPasswordFor(options, {});
+        }
+        auto validation = writeAndValidate(*pdf, out, options, n, reopenPassword,
+                                           ctx.slice(n, n, 2 * n), encryptionSource);
         appendWarnings(result.warnings, takeWarnings(*pdf));
-        for (auto& [id, os] : sources) {
-            appendWarnings(result.warnings, takeWarnings(*os.doc.pdf));
+        for (DocId id : used) {
+            appendWarnings(result.warnings, takeWarnings(*sources.at(id).doc.pdf));
         }
         appendWarnings(result.warnings, validation.warnings);
-    } // sources close here
+    }
+    // The cache may still hold the sources open; callers writing over a source must release
+    // the cache before committing, so only commit when the target is not one of them.
+    for (DocId id : used) {
+        std::error_code ec;
+        if (std::filesystem::equivalent(findSource(project, id).path, output, ec)) {
+            cache.impl->sources.erase(id);
+        }
+    }
     out.commit();
     result.outputs.push_back(output);
     return result;
+}
+
+namespace {
+
+OpResult copyMultiSource(const Project& project, const std::filesystem::path& output,
+                         const WriteOptions& options, const JobContext& ctx) {
+    SourceCache cache; // closed before return; writePages callers never reuse sources
+    auto out = copyPages(cache, project, output, options, ctx);
+    return out;
 }
 
 } // namespace

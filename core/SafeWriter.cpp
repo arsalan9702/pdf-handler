@@ -162,7 +162,7 @@ std::string reopenPasswordFor(const WriteOptions& options, const std::string& so
 
 ValidationResult writeAndValidate(QPDF& pdf, AtomicOutput& out, const WriteOptions& options,
                                   int expectedPages, const std::string& reopenPassword,
-                                  const JobContext& ctx) {
+                                  const JobContext& ctx, QPDF* encryptionSource) {
     ctx.checkCancel();
     const std::string tempName = pathToUtf8(out.tempPath());
     try {
@@ -183,7 +183,11 @@ ValidationResult writeAndValidate(QPDF& pdf, AtomicOutput& out, const WriteOptio
 
         switch (options.encryptionMode) {
         case EncryptionMode::Preserve:
-            writer.setPreserveEncryption(true);
+            if (encryptionSource != nullptr) {
+                writer.copyEncryptionParameters(*encryptionSource);
+            } else {
+                writer.setPreserveEncryption(true);
+            }
             break;
         case EncryptionMode::Remove:
             writer.setPreserveEncryption(false);

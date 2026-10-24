@@ -115,6 +115,7 @@ OpResult splitDocument(const SourceDoc& source, const std::filesystem::path& out
 
     const int total = static_cast<int>(parts.size());
     OpResult result;
+    SourceCache cache; // open the source once for all parts
     std::vector<std::filesystem::path> written;
     try {
         for (int i = 0; i < total; ++i) {
@@ -126,7 +127,8 @@ OpResult splitDocument(const SourceDoc& source, const std::filesystem::path& out
             for (int page : part.pages) {
                 p.pages.push_back({0, page, 0});
             }
-            auto r = writePages(p, part.path, options.write, ctx.slice(i * 100, 100, total * 100));
+            auto r =
+                copyPages(cache, p, part.path, options.write, ctx.slice(i * 100, 100, total * 100));
             written.push_back(part.path);
             appendWarnings(result.warnings, r.warnings);
             ctx.report((i + 1) * 100, total * 100);

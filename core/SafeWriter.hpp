@@ -79,9 +79,11 @@ ValidationResult validatePdf(const std::filesystem::path& path, const std::strin
 
 // Writes `pdf` to out.tempPath() and validates it. Does not commit, so callers can release
 // their source documents first. `reopenPassword` is whatever opens the written file.
+// With EncryptionMode::Preserve and `encryptionSource`, that document's encryption is applied
+// (for outputs assembled from pages of one encrypted source).
 ValidationResult writeAndValidate(QPDF& pdf, AtomicOutput& out, const WriteOptions& options,
                                   int expectedPages, const std::string& reopenPassword,
-                                  const JobContext& ctx);
+                                  const JobContext& ctx, QPDF* encryptionSource = nullptr);
 
 // Password that opens a file written with these options, given the source password.
 std::string reopenPasswordFor(const WriteOptions& options, const std::string& sourcePassword);

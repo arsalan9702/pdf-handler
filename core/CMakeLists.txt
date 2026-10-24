@@ -1,4 +1,8 @@
 add_library(pdfcore STATIC
+    Document.cpp
+    PageCopy.cpp
+    PageRange.cpp
+    SafeWriter.cpp
     Version.cpp
 )
 add_library(pdfh::core ALIAS pdfcore)

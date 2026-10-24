@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  QT_VERSION: "6.8.3"
+  QT_VERSION: "6.10.1"
   VCPKG_COMMIT: "0c2a9ace1964b818b15f7ae50ba1c42404918a7b"
 
 jobs:

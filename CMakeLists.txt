@@ -38,7 +38,8 @@ set_target_properties(qpdf::libqpdf PROPERTIES INTERFACE_LINK_LIBRARIES "ZLIB::Z
 
 add_subdirectory(core)
 
-if(PDFH_BUILD_CLI)
+# The app embeds the CLI (pdf-handler --cli ...), so build it whenever either is wanted.
+if(PDFH_BUILD_CLI OR PDFH_BUILD_APP)
     add_subdirectory(cli)
 endif()
 

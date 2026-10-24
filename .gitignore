@@ -1,0 +1,7 @@
+build/
+vcpkg_installed/
+.cache/
+compile_commands.json
+*.user
+.vscode/
+.idea/

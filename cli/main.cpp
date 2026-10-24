@@ -11,6 +11,7 @@
 #include "core/ops/Metadata.hpp"
 #include "core/ops/Split.hpp"
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -23,8 +24,10 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <shellapi.h>
+// clang-format off: shellapi.h needs windows.h first
 #include <windows.h>
+#include <shellapi.h>
+// clang-format on
 #endif
 
 namespace fs = std::filesystem;

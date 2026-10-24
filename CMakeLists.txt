@@ -24,6 +24,7 @@ endif()
 
 if(MSVC)
     add_compile_options(/W4 /permissive- /utf-8)
+    add_compile_definitions(NOMINMAX) # keep windows.h from defining min/max macros
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()

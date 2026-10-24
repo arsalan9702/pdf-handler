@@ -5,6 +5,8 @@
 #include "core/PageRange.hpp"
 #include "core/ops/Extract.hpp"
 
+#include <algorithm>
+
 namespace pdfcore {
 
 namespace {

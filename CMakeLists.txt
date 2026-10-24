@@ -29,6 +29,11 @@ else()
 endif()
 
 find_package(qpdf CONFIG REQUIRED)
+# vcpkg's qpdf config lists its deps as bare "z;jpeg", which makes the linker search system
+# paths (missing on CI, and the wrong copy on dev machines). Point it at vcpkg's own targets.
+find_package(ZLIB REQUIRED)
+find_package(JPEG REQUIRED)
+set_target_properties(qpdf::libqpdf PROPERTIES INTERFACE_LINK_LIBRARIES "ZLIB::ZLIB;JPEG::JPEG")
 
 add_subdirectory(core)
 

@@ -28,7 +28,7 @@ jobs:
             preset: release
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      PDFH_VCPKG: ${{ github.workspace }}/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
 
     steps:
@@ -71,10 +71,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
-          if [ "$RUNNER_OS" = "Windows" ]; then "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics; \
-          else "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+          git clone https://github.com/microsoft/vcpkg.git "$PDFH_VCPKG"
+          git -C "$PDFH_VCPKG" checkout "$VCPKG_COMMIT"
+          if [ "$RUNNER_OS" = "Windows" ]; then "$PDFH_VCPKG/bootstrap-vcpkg.bat" -disableMetrics; \
+          else "$PDFH_VCPKG/bootstrap-vcpkg.sh" -disableMetrics; fi
+          # Written after msvc-dev-cmd ran, so this wins over Visual Studio's bundled vcpkg.
+          echo "VCPKG_ROOT=$PDFH_VCPKG" >> "$GITHUB_ENV"
 
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
@@ -89,7 +91,7 @@ jobs:
     name: Linux ASan/UBSan
     runs-on: ubuntu-24.04
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      PDFH_VCPKG: ${{ github.workspace }}/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
     steps:
       - uses: actions/checkout@v4
@@ -102,9 +104,10 @@ jobs:
       - name: Bootstrap vcpkg
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          git clone https://github.com/microsoft/vcpkg.git "$PDFH_VCPKG"
+          git -C "$PDFH_VCPKG" checkout "$VCPKG_COMMIT"
+          "$PDFH_VCPKG/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$PDFH_VCPKG" >> "$GITHUB_ENV"
       - run: cmake --preset asan
       - run: cmake --build --preset asan
       - run: ctest --preset asan

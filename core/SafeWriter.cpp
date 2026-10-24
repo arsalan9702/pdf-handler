@@ -6,6 +6,7 @@
 #include <qpdf/QPDFExc.hh>
 #include <qpdf/QPDFJob.hh>
 #include <qpdf/QPDFLogger.hh>
+#include <qpdf/QPDFPageDocumentHelper.hh>
 #include <qpdf/QPDFWriter.hh>
 #include <random>
 #include <sstream>
@@ -55,6 +56,48 @@ std::vector<std::string> splitLines(const std::string& text) {
         }
     }
     return lines;
+}
+
+// Pages whose /Contents is not a stream or an array of streams (left behind by a damaged source)
+// are rejected by stricter PDF readers. Drop the broken references -- a page without /Contents
+// is a valid blank page -- and say which pages were affected.
+std::vector<std::string> repairPageContents(QPDF& pdf) {
+    std::vector<std::string> notes;
+    int number = 0;
+    for (auto& page : QPDFPageDocumentHelper(pdf).getAllPages()) {
+        ++number;
+        auto obj = page.getObjectHandle();
+        auto contents = obj.getKey("/Contents");
+        if (contents.isNull() || contents.isStream()) {
+            continue;
+        }
+        bool repaired = false;
+        if (contents.isArray()) {
+            auto kept = QPDFObjectHandle::newArray();
+            for (const auto& item : contents.getArrayAsVector()) {
+                if (item.isStream()) {
+                    kept.appendItem(item);
+                }
+            }
+            if (kept.getArrayNItems() != contents.getArrayNItems()) {
+                repaired = true;
+                if (kept.getArrayNItems() == 0) {
+                    obj.removeKey("/Contents");
+                } else {
+                    obj.replaceKey("/Contents", kept);
+                }
+            }
+        } else {
+            obj.removeKey("/Contents");
+            repaired = true;
+        }
+        if (repaired) {
+            notes.push_back("Page " + std::to_string(number) +
+                            ": its content was damaged beyond repair; part or all of the page "
+                            "is blank in the output.");
+        }
+    }
+    return notes;
 }
 
 } // namespace
@@ -165,7 +208,9 @@ ValidationResult writeAndValidate(QPDF& pdf, AtomicOutput& out, const WriteOptio
                                   const JobContext& ctx, QPDF* encryptionSource) {
     ctx.checkCancel();
     const std::string tempName = pathToUtf8(out.tempPath());
+    std::vector<std::string> repairs;
     try {
+        repairs = repairPageContents(pdf);
         QPDFWriter writer(pdf, tempName.c_str());
         switch (options.objectStreams) {
         case ObjectStreams::Preserve:
@@ -220,7 +265,9 @@ ValidationResult writeAndValidate(QPDF& pdf, AtomicOutput& out, const WriteOptio
         rethrowAsPdfError("Writing " + pathToUtf8(out.targetPath()), false);
     }
     ctx.checkCancel();
-    return validatePdf(out.tempPath(), reopenPassword, expectedPages);
+    auto result = validatePdf(out.tempPath(), reopenPassword, expectedPages);
+    result.warnings.insert(result.warnings.begin(), repairs.begin(), repairs.end());
+    return result;
 }
 
 } // namespace pdfcore

@@ -2,6 +2,7 @@
 
 #include "core/Errors.hpp"
 
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <qpdf/QPDF.hh>
@@ -30,6 +31,14 @@ bool hasPdfHeader(const std::filesystem::path& path) {
 std::string pathToUtf8(const std::filesystem::path& path) {
     const auto u8 = path.u8string();
     return {u8.begin(), u8.end()};
+}
+
+void appendWarnings(std::vector<std::string>& into, const std::vector<std::string>& from) {
+    for (const auto& w : from) {
+        if (std::ranges::find(into, w) == into.end()) {
+            into.push_back(w);
+        }
+    }
 }
 
 std::vector<std::string> takeWarnings(QPDF& pdf) {

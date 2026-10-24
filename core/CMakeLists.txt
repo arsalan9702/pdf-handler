@@ -4,6 +4,14 @@ add_library(pdfcore STATIC
     PageRange.cpp
     SafeWriter.cpp
     Version.cpp
+    ops/Compress.cpp
+    ops/Encrypt.cpp
+    ops/Extract.cpp
+    ops/ImagesToPdf.cpp
+    ops/Merge.cpp
+    ops/Metadata.cpp
+    ops/Rewrite.cpp
+    ops/Split.cpp
 )
 add_library(pdfh::core ALIAS pdfcore)
 

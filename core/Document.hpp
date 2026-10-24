@@ -24,6 +24,9 @@ OpenedDocument openDocument(const std::filesystem::path& path, const std::string
 // after open) into plain strings.
 std::vector<std::string> takeWarnings(QPDF& pdf);
 
+// Appends `from` to `into`, skipping messages already present.
+void appendWarnings(std::vector<std::string>& into, const std::vector<std::string>& from);
+
 // QPDF expects UTF-8 file names on every platform, including Windows.
 std::string pathToUtf8(const std::filesystem::path& path);
 

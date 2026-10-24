@@ -29,10 +29,18 @@ struct SourceDoc {
     std::string password;
 };
 
+// A top-level outline entry pointing at a 0-based page of the output.
+struct Bookmark {
+    std::string title;
+    int outputPageIndex = 0;
+};
+
 // The non-destructive edit model: nothing touches disk until a job writes it.
 struct Project {
     std::vector<SourceDoc> sources;
     std::vector<PageRef> pages;
+    // When non-empty, replaces the output's outline with these entries.
+    std::vector<Bookmark> bookmarks;
 };
 
 struct OpResult {
@@ -68,6 +76,20 @@ struct JobContext {
         if (progress) {
             progress(done, total);
         }
+    }
+
+    // A child context whose progress (done/childTotal) maps onto [offset, offset + span] of
+    // `total` units of this context. The child must not outlive this context.
+    [[nodiscard]] JobContext slice(int offset, int span, int total) const {
+        JobContext child;
+        child.cancel = cancel;
+        if (progress) {
+            child.progress = [this, offset, span, total](int done, int childTotal) {
+                const int mapped = childTotal > 0 ? offset + span * done / childTotal : offset;
+                report(mapped, total);
+            };
+        }
+        return child;
     }
 };
 

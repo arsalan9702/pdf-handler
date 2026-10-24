@@ -37,24 +37,41 @@ const SourceDoc& findSource(const Project& project, DocId id) {
     throw PdfError(ErrorKind::InvalidArgument, "Unknown source document id " + std::to_string(id));
 }
 
-void appendUnique(std::vector<std::string>& into, const std::vector<std::string>& from) {
-    for (const auto& w : from) {
-        if (std::ranges::find(into, w) == into.end()) {
-            into.push_back(w);
+// Replaces the document outline with flat entries, one per bookmark.
+void applyBookmarks(QPDF& pdf, const std::vector<Bookmark>& bookmarks) {
+    if (bookmarks.empty()) {
+        return;
+    }
+    const auto& pages = pdf.getAllPages();
+    auto outlines = pdf.makeIndirectObject(QPDFObjectHandle::newDictionary());
+    outlines.replaceKey("/Type", QPDFObjectHandle::newName("/Outlines"));
+    QPDFObjectHandle first;
+    QPDFObjectHandle prev;
+    for (const auto& bm : bookmarks) {
+        if (bm.outputPageIndex < 0 || std::cmp_greater_equal(bm.outputPageIndex, pages.size())) {
+            throw PdfError(ErrorKind::InvalidArgument,
+                           "Bookmark \"" + bm.title + "\" points past the last page");
         }
+        auto item = pdf.makeIndirectObject(QPDFObjectHandle::newDictionary());
+        item.replaceKey("/Title", QPDFObjectHandle::newUnicodeString(bm.title));
+        item.replaceKey("/Parent", outlines);
+        auto dest = QPDFObjectHandle::newArray();
+        dest.appendItem(pages[static_cast<std::size_t>(bm.outputPageIndex)]);
+        dest.appendItem(QPDFObjectHandle::newName("/Fit"));
+        item.replaceKey("/Dest", dest);
+        if (prev.isInitialized()) {
+            prev.replaceKey("/Next", item);
+            item.replaceKey("/Prev", prev);
+        } else {
+            first = item;
+        }
+        prev = item;
     }
-}
-
-// Progress for the write phase maps 0..100% onto the second half of the unit range.
-JobContext writePhase(const JobContext& ctx, int pages) {
-    JobContext phase;
-    phase.cancel = ctx.cancel;
-    if (ctx.progress) {
-        phase.progress = [&ctx, pages](int percent, int /*total*/) {
-            ctx.report(pages + pages * percent / 100, 2 * pages);
-        };
-    }
-    return phase;
+    outlines.replaceKey("/First", first);
+    outlines.replaceKey("/Last", prev);
+    outlines.replaceKey("/Count",
+                        QPDFObjectHandle::newInteger(static_cast<long long>(bookmarks.size())));
+    pdf.getRoot().replaceKey("/Outlines", outlines);
 }
 
 OpResult copySingleSource(const Project& project, const SourceDoc& source,
@@ -65,7 +82,7 @@ OpResult copySingleSource(const Project& project, const SourceDoc& source,
 
     // Open once ourselves for precise errors (password, damage) and bounds checking.
     auto opened = openDocument(source.path, source.password);
-    appendUnique(result.warnings, opened.warnings);
+    appendWarnings(result.warnings, opened.warnings);
     std::vector<int> indices;
     std::map<int, std::vector<int>> outputPagesByAngle; // angle -> 0-based output positions
     for (int i = 0; i < n; ++i) {
@@ -115,13 +132,15 @@ OpResult copySingleSource(const Project& project, const SourceDoc& source,
             throw PdfError(ErrorKind::Damaged, name + ": could not select pages\n" + log.str());
         }
         pdf->setSuppressWarnings(true);
-        appendUnique(result.warnings, takeWarnings(*pdf));
+        appendWarnings(result.warnings, takeWarnings(*pdf));
+        applyBookmarks(*pdf, project.bookmarks);
         ctx.report(n, 2 * n);
 
-        auto validation = writeAndValidate(
-            *pdf, out, options, n, reopenPasswordFor(options, source.password), writePhase(ctx, n));
-        appendUnique(result.warnings, takeWarnings(*pdf));
-        appendUnique(result.warnings, validation.warnings);
+        auto validation =
+            writeAndValidate(*pdf, out, options, n, reopenPasswordFor(options, source.password),
+                             ctx.slice(n, n, 2 * n));
+        appendWarnings(result.warnings, takeWarnings(*pdf));
+        appendWarnings(result.warnings, validation.warnings);
     } // job and pdf release the source file here, before the target may be replaced
     out.commit();
     result.outputs.push_back(output);
@@ -156,7 +175,7 @@ OpResult copyMultiSource(const Project& project, const std::filesystem::path& ou
             const auto& src = findSource(project, ref.sourceDocId);
             OpenSource os;
             os.doc = openDocument(src.path, src.password);
-            appendUnique(result.warnings, os.doc.warnings);
+            appendWarnings(result.warnings, os.doc.warnings);
             os.pages = QPDFPageDocumentHelper(*os.doc.pdf).getAllPages();
             os.forms = std::make_unique<QPDFAcroFormDocumentHelper>(*os.doc.pdf);
             sources.emplace(ref.sourceDocId, std::move(os));
@@ -196,14 +215,15 @@ OpResult copyMultiSource(const Project& project, const std::filesystem::path& ou
         } catch (...) {
             rethrowAsPdfError("Copying pages", false);
         }
+        applyBookmarks(*pdf, project.bookmarks);
 
         auto validation = writeAndValidate(*pdf, out, options, n, reopenPasswordFor(options, {}),
-                                           writePhase(ctx, n));
-        appendUnique(result.warnings, takeWarnings(*pdf));
+                                           ctx.slice(n, n, 2 * n));
+        appendWarnings(result.warnings, takeWarnings(*pdf));
         for (auto& [id, os] : sources) {
-            appendUnique(result.warnings, takeWarnings(*os.doc.pdf));
+            appendWarnings(result.warnings, takeWarnings(*os.doc.pdf));
         }
-        appendUnique(result.warnings, validation.warnings);
+        appendWarnings(result.warnings, validation.warnings);
     } // sources close here
     out.commit();
     result.outputs.push_back(output);

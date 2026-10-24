@@ -7,6 +7,7 @@ Checks: >
   -modernize-use-trailing-return-type,
   performance-*,
   -performance-enum-size,
+  -modernize-use-designated-initializers,
   readability-identifier-naming,
   readability-braces-around-statements
 WarningsAsErrors: ''

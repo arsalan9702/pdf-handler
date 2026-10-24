@@ -61,3 +61,16 @@ if(PDFH_BUILD_APP)
     catch_discover_tests(app_tests DISCOVERY_MODE PRE_TEST
         PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# The real QML interface driven by synthetic mouse input.
+if(PDFH_BUILD_APP)
+    add_executable(ui_tests ui/test_ui.cpp)
+    add_dependencies(ui_tests pdfh_fixtures)
+    target_include_directories(ui_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(ui_tests PRIVATE pdfh_ui pdfh_uiplugin Qt6::Test Catch2::Catch2)
+    target_compile_definitions(ui_tests PRIVATE
+        PDFH_FIXTURE_DIR="${PDFH_FIXTURE_DIR}"
+        PDFH_QPDF_EXECUTABLE="${PDFH_QPDF_EXECUTABLE}")
+    catch_discover_tests(ui_tests DISCOVERY_MODE PRE_TEST
+        PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

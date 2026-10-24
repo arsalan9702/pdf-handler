@@ -7,10 +7,11 @@ import PdfHandler
 // A page thumbnail in the organizer grid: select, drag to reorder, rotate with animation.
 Item {
     id: cell
+    objectName: "pageTile"
 
     required property int index
     required property string thumbnail
-    required property int rotation
+    required property int pageRotation // degrees, clockwise
     required property int pageNumber
     required property string docName
     required property int docIndex
@@ -69,7 +70,7 @@ Item {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 cache: false // the provider keeps its own LRU cache
-                rotation: cell.rotation
+                rotation: cell.pageRotation
                 Behavior on rotation { RotationAnimation { duration: Theme.durationNormal; direction: RotationAnimation.Shortest } }
 
                 Rectangle {
@@ -128,6 +129,7 @@ Item {
                     ]
                     delegate: IconButton {
                         required property var modelData
+                        objectName: modelData.action + "Button"
                         iconName: modelData.icon
                         tip: modelData.tip
                         size: Theme.controlHeightSmall

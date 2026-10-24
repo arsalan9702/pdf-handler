@@ -9,10 +9,13 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <QQmlExtensionPlugin>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QTimer>
 #include <cstring>
+
+Q_IMPORT_QML_PLUGIN(PdfHandlerPlugin)
 
 int main(int argc, char* argv[]) {
     // `pdf-handler --cli <command> ...` runs the pdfh command-line tool (used by the AppImage).

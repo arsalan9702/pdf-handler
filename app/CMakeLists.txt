@@ -39,8 +39,11 @@ endif()
 
 set_source_files_properties(qml/theme/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
-qt_add_qml_module(pdf-handler
+# The UI (C++ types + QML) is a static QML module so tests can load the real interface.
+qt_add_library(pdfh_ui STATIC)
+qt_add_qml_module(pdfh_ui
     URI PdfHandler
+    OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PdfHandler
     SOURCES
         commands/PageCommands.cpp commands/PageCommands.hpp
         models/DocumentListModel.cpp models/DocumentListModel.hpp
@@ -142,10 +145,17 @@ qt_add_qml_module(pdf-handler
 )
 
 # qmltyperegistrar includes QML_ELEMENT headers by file name only.
-target_include_directories(pdf-handler PRIVATE
+target_include_directories(pdfh_ui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/services
     ${CMAKE_CURRENT_SOURCE_DIR}/commands)
+target_link_libraries(pdfh_ui PUBLIC
+    pdfh::core
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::Pdf
+    Qt6::Svg
+)
 
 set_target_properties(pdf-handler PROPERTIES
     OUTPUT_NAME pdf-handler
@@ -164,14 +174,7 @@ endif()
 
 target_compile_definitions(pdf-handler PRIVATE PDFH_VERSION="${PROJECT_VERSION}")
 
-target_link_libraries(pdf-handler PRIVATE
-    pdfh::core
-    pdfh_cli
-    Qt6::Quick
-    Qt6::QuickControls2
-    Qt6::Pdf
-    Qt6::Svg
-)
+target_link_libraries(pdf-handler PRIVATE pdfh_ui pdfh_uiplugin pdfh_cli)
 
 install(TARGETS pdf-handler
     BUNDLE DESTINATION .

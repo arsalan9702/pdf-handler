@@ -54,11 +54,12 @@ class ProjectPageModel : public QAbstractListModel {
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE bool isSelected(int row) const;
 
-    // Edits act on the selection, or on `row` when it is not part of the selection.
+    // Edits act on page `row`, or on the selection when `row` is -1.
     Q_INVOKABLE void rotate(int row, int degrees);
     Q_INVOKABLE void remove(int row);
     Q_INVOKABLE void duplicate(int row);
-    // Moves the selection (or `row`) so it starts at `target` (index in the current list).
+    // Moves page `row` -- or the whole selection when `row` is part of it, as when dragging a
+    // selected page -- so it starts at `target` (index in the current list).
     Q_INVOKABLE void moveTo(int row, int target);
     Q_INVOKABLE void reverse();
 
@@ -95,6 +96,7 @@ class ProjectPageModel : public QAbstractListModel {
     void appendDocument(quint32 docId);
     void dropDocument(quint32 docId);
     [[nodiscard]] QSet<quint64> targetUids(int row) const;
+    [[nodiscard]] QSet<quint64> dragUids(int row) const;
     void push(SnapshotCommand* command);
     [[nodiscard]] PageItem makeItem(const pdfcore::PageRef& ref);
 

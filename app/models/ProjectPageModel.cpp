@@ -56,10 +56,10 @@ QVariant ProjectPageModel::data(const QModelIndex& index, int role) const {
 }
 
 QHash<int, QByteArray> ProjectPageModel::roleNames() const {
-    return {{DocIdRole, "docId"},       {PageIndexRole, "pageIndex"},
-            {RotationRole, "rotation"}, {PageNumberRole, "pageNumber"},
-            {DocNameRole, "docName"},   {DocIndexRole, "docIndex"},
-            {SelectedRole, "selected"}, {ThumbnailRole, "thumbnail"}};
+    return {{DocIdRole, "docId"},           {PageIndexRole, "pageIndex"},
+            {RotationRole, "pageRotation"}, {PageNumberRole, "pageNumber"},
+            {DocNameRole, "docName"},       {DocIndexRole, "docIndex"},
+            {SelectedRole, "selected"},     {ThumbnailRole, "thumbnail"}};
 }
 
 void ProjectPageModel::setDocuments(DocumentListModel* documents) {
@@ -212,10 +212,17 @@ int ProjectPageModel::selectedCount() const {
 }
 
 QSet<quint64> ProjectPageModel::targetUids(int row) const {
-    if (row >= 0 && row < rowCount() && !isSelected(row)) {
+    if (row < 0) {
+        return m_selected;
+    }
+    if (row < rowCount()) {
         return {m_pages[static_cast<std::size_t>(row)].uid};
     }
-    return m_selected;
+    return {};
+}
+
+QSet<quint64> ProjectPageModel::dragUids(int row) const {
+    return isSelected(row) ? m_selected : targetUids(row);
 }
 
 void ProjectPageModel::push(SnapshotCommand* command) {
@@ -269,7 +276,7 @@ void ProjectPageModel::duplicate(int row) {
 }
 
 void ProjectPageModel::moveTo(int row, int target) {
-    const auto targets = targetUids(row);
+    const auto targets = dragUids(row);
     if (targets.isEmpty()) {
         return;
     }

@@ -117,7 +117,7 @@ ToolLayout {
             }
         }
         HelpText {
-            visible: page.preview.names && page.preview.names.length > 6
+            visible: !!page.preview.names && page.preview.names.length > 6
             text: page.preview.names ? qsTr("…and %n more", "", page.preview.names.length - 6) : ""
         }
     }

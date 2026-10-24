@@ -64,7 +64,7 @@ Popup {
             clip: true
             Image {
                 id: big
-                readonly property bool sideways: (popup.item.rotation || 0) % 180 !== 0
+                readonly property bool sideways: (popup.item.pageRotation || 0) % 180 !== 0
                 anchors.centerIn: parent
                 width: sideways ? parent.height : parent.width
                 height: sideways ? parent.width : parent.height
@@ -72,7 +72,7 @@ Popup {
                 sourceSize: Qt.size(1600 * Screen.devicePixelRatio, 1600 * Screen.devicePixelRatio)
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
-                rotation: popup.item.rotation || 0
+                rotation: popup.item.pageRotation || 0
                 Behavior on rotation { RotationAnimation { duration: Theme.durationNormal; direction: RotationAnimation.Shortest } }
             }
             BusyIndicator { anchors.centerIn: parent; running: big.status === Image.Loading }

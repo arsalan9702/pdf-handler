@@ -16,7 +16,10 @@ FocusScope {
     function addFiles(urls) { docs.addUrls(urls) }
 
     DocumentList { id: docs }
-    PageProject { id: project; documents: docs }
+    PageProject { id: project; objectName: "pageProject"; documents: docs }
+    // Delegates and popups take the model through this name: inside a component with its own
+    // `project` property, `project: project` would bind the property to itself (null).
+    readonly property PageProject pageModel: project
 
     property int thumbSize: 168
     property int dragFrom: -1
@@ -190,6 +193,7 @@ FocusScope {
 
             GridView {
                 id: grid
+                objectName: "pageGrid"
                 anchors.fill: parent
                 visible: project.count > 0
                 clip: true
@@ -203,7 +207,7 @@ FocusScope {
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                 delegate: PageTile {
-                    project: project
+                    project: page.pageModel
                     thumbSize: page.thumbSize
                     multiDoc: docs.count > 1
                     dropIndicator: page.dragFrom >= 0 && page.dropTarget === index && !selected
@@ -269,14 +273,15 @@ FocusScope {
     Menu {
         id: contextMenu
         property int row: -1
-        MenuItem { text: qsTr("Rotate right"); onTriggered: project.rotate(contextMenu.row, 90) }
-        MenuItem { text: qsTr("Rotate left"); onTriggered: project.rotate(contextMenu.row, -90) }
-        MenuItem { text: qsTr("Rotate 180°"); onTriggered: project.rotate(contextMenu.row, 180) }
+        // Right-click selects the page first, so these act on the selection.
+        MenuItem { text: qsTr("Rotate right"); onTriggered: project.rotate(-1, 90) }
+        MenuItem { text: qsTr("Rotate left"); onTriggered: project.rotate(-1, -90) }
+        MenuItem { text: qsTr("Rotate 180°"); onTriggered: project.rotate(-1, 180) }
         MenuSeparator {}
-        MenuItem { text: qsTr("Duplicate"); onTriggered: project.duplicate(contextMenu.row) }
+        MenuItem { text: qsTr("Duplicate"); onTriggered: project.duplicate(-1) }
         MenuItem { text: qsTr("Save selection as…"); onTriggered: page.saveSelected() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Delete"); onTriggered: project.remove(contextMenu.row) }
+        MenuItem { text: qsTr("Delete"); onTriggered: project.remove(-1) }
     }
 
     FileDialog {
@@ -288,6 +293,6 @@ FocusScope {
 
     PagePreview {
         id: preview
-        project: project
+        project: page.pageModel
     }
 }

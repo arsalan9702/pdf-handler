@@ -25,6 +25,18 @@ int main(int argc, char* argv[]) {
         return runCli(args);
     }
 
+#if defined(Q_OS_LINUX)
+    // Native file dialogs on Linux. QtQuick.Dialogs only shows the desktop's own picker through a
+    // platform theme that works without Qt Widgets; KDE's theme needs Widgets, so it falls back
+    // to Qt's QML dialog. The XDG desktop portal theme asks the desktop instead (KDE's dialog on
+    // Plasma, GNOME's on GNOME) and still follows the system light/dark setting. Explicit user
+    // choices are respected; without a running portal Qt falls back on its own.
+    if (const QByteArray theme = qgetenv("QT_QPA_PLATFORMTHEME");
+        theme.isEmpty() || theme.compare("kde", Qt::CaseInsensitive) == 0) {
+        qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
+    }
+#endif
+
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("PDF Handler"));
     QGuiApplication::setOrganizationName(QStringLiteral("PdfHandler"));

@@ -40,6 +40,8 @@ for wl in libqwayland.so libqwayland-generic.so libqwayland-egl.so; do
 done
 export EXTRA_PLATFORM_PLUGINS="$platforms"
 export EXTRA_QT_MODULES="$modules"
+# Native file dialogs through the XDG desktop portal (see app/main.cpp).
+export EXTRA_QT_PLUGINS="platformthemes"
 export LDAI_OUTPUT="$DIST/PDF-Handler-$VERSION-x86_64.AppImage"
 export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
 

@@ -234,7 +234,7 @@ QString AppController::installLauncher(bool makeDefault) {
                        "Exec=%1 %F\n"
                        "Icon=%2\n"
                        "Terminal=false\n"
-                       "Categories=Office;Graphics;Viewer;\n"
+                       "Categories=Office;Viewer;\n"
                        "MimeType=application/pdf;image/png;image/jpeg;\n"
                        "Keywords=pdf;merge;split;compress;encrypt;organize;\n"
                        "StartupWMClass=%2\n")

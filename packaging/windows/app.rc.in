@@ -1,0 +1,22 @@
+IDI_ICON1 ICON "@PDFH_ICON_DIR@/app.ico"
+
+1 VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "PDF Handler"
+      VALUE "FileVersion", "@PROJECT_VERSION@"
+      VALUE "ProductName", "PDF Handler"
+      VALUE "ProductVersion", "@PROJECT_VERSION@"
+      VALUE "OriginalFilename", "pdf-handler.exe"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

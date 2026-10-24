@@ -1,0 +1,125 @@
+name: Package
+
+# Installers for all three platforms. Runs on version tags (and publishes a GitHub release)
+# or manually from the Actions tab (artifacts only).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.10.1"
+  VCPKG_COMMIT: "0c2a9ace1964b818b15f7ae50ba1c42404918a7b"
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux AppImage
+            # Oldest supported base keeps the AppImage working on older distributions.
+            os: ubuntu-22.04
+            preset: release
+          - name: Windows installer
+            os: windows-2022
+            preset: ci-windows
+          - name: macOS dmg
+            os: macos-14
+            preset: release
+    env:
+      PDFH_VCPKG: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build qpdf libgl1-mesa-dev libxkbcommon-dev \
+            libxkbcommon-x11-0 libxcb-cursor0 libfuse2 g++-12
+          echo "CC=gcc-12" >> "$GITHUB_ENV"
+          echo "CXX=g++-12" >> "$GITHUB_ENV"
+
+      - name: Install system packages (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja qpdf
+
+      - name: Install system packages (Windows)
+        if: runner.os == 'Windows'
+        run: choco install qpdf --no-progress -y
+
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtpdf qtimageformats
+          cache: true
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-pkg-${{ matrix.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-pkg-${{ matrix.os }}-${{ env.VCPKG_COMMIT }}-
+
+      - name: Bootstrap vcpkg
+        shell: bash
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          git clone https://github.com/microsoft/vcpkg.git "$PDFH_VCPKG"
+          git -C "$PDFH_VCPKG" checkout "$VCPKG_COMMIT"
+          if [ "$RUNNER_OS" = "Windows" ]; then "$PDFH_VCPKG/bootstrap-vcpkg.bat" -disableMetrics; \
+          else "$PDFH_VCPKG/bootstrap-vcpkg.sh" -disableMetrics; fi
+          echo "VCPKG_ROOT=$PDFH_VCPKG" >> "$GITHUB_ENV"
+
+      - name: Build and test
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }}
+          ctest --preset ${{ matrix.preset }}
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: scripts/package-linux.sh build/release "$QT_ROOT_DIR/bin/qmake"
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: scripts/package-macos.sh build/release
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 build/ci-windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "PDF Handler ${GITHUB_REF_NAME#v}" --generate-notes

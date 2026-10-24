@@ -31,6 +31,21 @@ int main(int argc, char* argv[]) {
     QGuiApplication::setWindowIcon(
         QIcon(QStringLiteral(":/qt/qml/PdfHandler/qml/brand/app-icon.svg")));
 
+    // Scripted desktop integration (Linux): same as Settings > Add to launcher.
+    const QStringList args = QCoreApplication::arguments();
+    if (args.contains(QStringLiteral("--install-desktop")) ||
+        args.contains(QStringLiteral("--uninstall-desktop"))) {
+        const QString error = args.contains(QStringLiteral("--install-desktop"))
+                                  ? AppController::instance()->installLauncher(
+                                        args.contains(QStringLiteral("--default")))
+                                  : AppController::instance()->uninstallLauncher();
+        if (!error.isEmpty()) {
+            qCritical("%s", qPrintable(error));
+            return 1;
+        }
+        return 0;
+    }
+
     QStringList files;
     for (const auto& arg : QCoreApplication::arguments().mid(1)) {
         if (!arg.startsWith(u'-') && QFileInfo(arg).isFile()) {

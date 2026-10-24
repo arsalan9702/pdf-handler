@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.pdfhandler</id>
+  <name>PDF Handler</name>
+  <summary>Merge, split, organize, compress and protect PDFs</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <description>
+    <p>A fast, private PDF toolkit that works entirely on your computer. Reorder, rotate and
+    delete pages, merge and split documents, compress files, add or remove passwords, edit
+    document properties, and convert between PDFs and images. Every result is verified before
+    it is written, and originals are never modified unless you choose to overwrite them.</p>
+  </description>
+  <launchable type="desktop-id">io.github.pdfhandler.desktop</launchable>
+  <provides><binary>pdf-handler</binary></provides>
+  <content_rating type="oars-1.1"/>
+</component>

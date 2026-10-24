@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Handler
+GenericName=PDF Toolkit
+Comment=Merge, split, organize, compress and protect PDFs
+Exec=pdf-handler %F
+Icon=io.github.pdfhandler
+Terminal=false
+Categories=Office;Graphics;Viewer;
+MimeType=application/pdf;image/png;image/jpeg;
+Keywords=pdf;merge;split;compress;encrypt;organize;
+StartupWMClass=io.github.pdfhandler

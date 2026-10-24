@@ -6,6 +6,37 @@ qt_add_executable(pdf-handler
     main.cpp
 )
 
+# App icon in every platform format, rendered from the SVG at build time.
+add_executable(pdfh_icon_gen ${PROJECT_SOURCE_DIR}/tools/icon_gen.cpp)
+target_link_libraries(pdfh_icon_gen PRIVATE Qt6::Gui Qt6::Svg)
+set(PDFH_ICON_SVG ${CMAKE_CURRENT_SOURCE_DIR}/qml/brand/app-icon.svg)
+set(PDFH_ICON_DIR ${CMAKE_CURRENT_BINARY_DIR}/icons)
+add_custom_command(
+    OUTPUT ${PDFH_ICON_DIR}/app.ico ${PDFH_ICON_DIR}/png/256.png
+    COMMAND pdfh_icon_gen ${PDFH_ICON_SVG} ${PDFH_ICON_DIR}
+    DEPENDS pdfh_icon_gen ${PDFH_ICON_SVG}
+    COMMENT "Rendering app icons"
+    VERBATIM)
+add_custom_target(pdfh_icons DEPENDS ${PDFH_ICON_DIR}/app.ico)
+add_dependencies(pdf-handler pdfh_icons)
+
+if(WIN32)
+    configure_file(${PROJECT_SOURCE_DIR}/packaging/windows/app.rc.in
+                   ${CMAKE_CURRENT_BINARY_DIR}/app.rc @ONLY)
+    target_sources(pdf-handler PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
+    set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/app.rc PROPERTIES
+        OBJECT_DEPENDS ${PDFH_ICON_DIR}/app.ico)
+elseif(APPLE)
+    add_custom_command(
+        OUTPUT ${PDFH_ICON_DIR}/app.icns
+        COMMAND iconutil -c icns ${PDFH_ICON_DIR}/app.iconset -o ${PDFH_ICON_DIR}/app.icns
+        DEPENDS ${PDFH_ICON_DIR}/app.ico
+        VERBATIM)
+    target_sources(pdf-handler PRIVATE ${PDFH_ICON_DIR}/app.icns)
+    set_source_files_properties(${PDFH_ICON_DIR}/app.icns PROPERTIES
+        MACOSX_PACKAGE_LOCATION Resources GENERATED TRUE)
+endif()
+
 set_source_files_properties(qml/theme/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(pdf-handler
@@ -124,7 +155,12 @@ set_target_properties(pdf-handler PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "PDF Handler"
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/packaging/macos/Info.plist.in
 )
+
+if(APPLE)
+    set_target_properties(pdf-handler PROPERTIES OUTPUT_NAME "PDF Handler") # "PDF Handler.app"
+endif()
 
 target_compile_definitions(pdf-handler PRIVATE PDFH_VERSION="${PROJECT_VERSION}")
 
@@ -142,8 +178,25 @@ install(TARGETS pdf-handler
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-qt_generate_deploy_qml_app_script(
-    TARGET pdf-handler
-    OUTPUT_SCRIPT deploy_script
-)
-install(SCRIPT ${deploy_script})
+if(WIN32 OR APPLE)
+    # windeployqt / macdeployqt: Qt libraries, plugins and QML imports next to the app.
+    qt_generate_deploy_qml_app_script(
+        TARGET pdf-handler
+        OUTPUT_SCRIPT deploy_script
+        NO_TRANSLATIONS
+    )
+    install(SCRIPT ${deploy_script})
+else()
+    # Linux: desktop entry, metadata and icons; the AppImage bundles Qt via linuxdeploy.
+    install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.pdfhandler.desktop
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.pdfhandler.metainfo.xml
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
+    install(FILES ${PDFH_ICON_SVG} DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+            RENAME io.github.pdfhandler.svg)
+    foreach(size 16 32 48 64 128 256 512)
+        install(FILES ${PDFH_ICON_DIR}/png/${size}.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
+                RENAME io.github.pdfhandler.png)
+    endforeach()
+endif()
